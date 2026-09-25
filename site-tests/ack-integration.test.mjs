@@ -148,7 +148,7 @@ test('keeps Ack 1.2 setup and generated-part guidance current', () => {
     assert.match(source, /@AckInfer/)
     assert.match(source, /@AckModel/)
   }
-  assert.doesNotMatch(ackSurface, /github\.com\/btwld\/ack/)
+  assert.doesNotMatch(ackSurface, /github\.com\/conceptadev\/ack/)
   assert.doesNotMatch(ackSurface, /@AckType|UserType/)
   assert.match(llms, /Rename `@AckType\(\)` to `@AckInfer\(\)`/)
 })

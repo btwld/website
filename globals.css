@@ -32,7 +32,7 @@ html.dark {
     --mix-gradient-heading: linear-gradient(to bottom right, #fff, #a1a1aa);
 }
 
-/* Concepta home: brand palette from conceptadev/design-system.
+/* Concepta home: brand palette from btwld/design-system.
    Dark-surface roles: primary blue brightened to hold contrast on black,
    aqua reserved as the hero accent. */
 html.dark[data-product="concepta"] {

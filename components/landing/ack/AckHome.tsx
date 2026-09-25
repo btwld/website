@@ -31,7 +31,7 @@ export function AckHome() {
             <Link className="ack-button ack-button-primary" href="/documentation/ack/getting-started/quickstart-tutorial">
               Start validating <span aria-hidden="true">→</span>
             </Link>
-            <a className="ack-button ack-button-secondary" href="https://github.com/conceptadev/ack">
+            <a className="ack-button ack-button-secondary" href="https://github.com/btwld/ack">
               View on GitHub
             </a>
           </div>
