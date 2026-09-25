@@ -2,23 +2,23 @@
 
 <img src="public/assets/logo_light.png" alt="Mix logo" width="200" />
 
-# Mix Docs
+# Concepta Website
 
-**Documentation site for [Mix](https://github.com/btwld/mix) — an expressive way to build design systems in Flutter.**
+**Concepta's product site and documentation for Mix and Ack.**
 
-[fluttermix.com](https://fluttermix.com) · [Mix repo](https://github.com/btwld/mix) · [pub.dev](https://pub.dev/packages/mix)
+[concepta.dev](https://concepta.dev) · [Mix documentation](https://concepta.dev/documentation/mix/overview/introduction) · [Ack documentation](https://concepta.dev/documentation/ack/getting-started/overview)
 
 </div>
 
 ---
 
-This repository hosts the source for the Mix documentation website. It pairs a Next.js + Nextra docs frontend with a Flutter preview bundle so every widget example in the docs is a live, interactive Flutter app compiled to WebAssembly.
+This repository hosts the Concepta website and product documentation. It pairs a Next.js + Nextra frontend with a Flutter preview bundle so Mix widget examples in the docs are live, interactive Flutter apps compiled to WebAssembly.
 
 ## Tech stack
 
 | Layer       | Stack                                                             |
 | ----------- | ----------------------------------------------------------------- |
-| Docs site   | Next.js 15, Nextra 4, React 19, Tailwind CSS 4, TypeScript        |
+| Site and docs | Next.js 15, Nextra 4, React 19, Tailwind CSS 4, TypeScript      |
 | Previews    | Flutter 3.44+, Dart 3.12+, [Mix](https://pub.dev/packages/mix) 2+ |
 | Search      | Pagefind                                                          |
 | Deployment  | Vercel + GitHub Actions                                           |
@@ -50,7 +50,7 @@ Start the Next.js dev server:
 pnpm dev
 ```
 
-Open <http://localhost:3000> to view the docs.
+Open <http://localhost:3000> to view the site.
 
 > [!NOTE]
 > The Flutter bundle only needs to be rebuilt when you change preview code in `packages/mix_docs_preview/`. Regular MDX and component edits are hot-reloaded by Next.js.
