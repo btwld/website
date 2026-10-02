@@ -36,6 +36,7 @@ function getActiveProduct(pathname: string | null): ProductId {
     if (!pathname) return 'concepta'
     if (pathname === '/') return 'concepta'
     if (pathname === '/reports' || pathname.startsWith('/reports/')) return 'concepta'
+    if (pathname === '/contact') return 'concepta'
     if (pathname === '/fluttercon2026' || pathname.startsWith('/fluttercon2026/')) return 'concepta'
     if (pathname.startsWith('/documentation/remix')) return 'remix'
     if (pathname === '/remix' || pathname.startsWith('/remix/')) return 'remix'
@@ -590,6 +591,13 @@ function MobileDrawer({
                             >
                                 Reports
                             </Link>
+                            <Link
+                                href="/contact"
+                                onClick={onClose}
+                                className="px-3 py-2 text-white/90 hover:bg-white/5 rounded"
+                            >
+                                Contact
+                            </Link>
                         </>
                     ) : (
                         <Link
@@ -657,6 +665,7 @@ export default function FloatingNavbar() {
     const [searchOpen, setSearchOpen] = useState(false)
     const isDocsActive = pathname?.startsWith('/documentation') ?? false
     const isReportsActive = pathname?.startsWith('/reports') ?? false
+    const isContactActive = pathname === '/contact'
     const activeProduct = getActiveProduct(pathname)
     const homeHref = getProductMeta(activeProduct)?.href ?? '/'
     const isHomeActive = pathname === homeHref
@@ -719,6 +728,17 @@ export default function FloatingNavbar() {
                             )}
                         >
                             Reports
+                        </Link>
+                        <Link
+                            href="/contact"
+                            className={clsx(
+                                'px-3 py-1.5 text-sm transition-colors',
+                                isContactActive
+                                    ? 'text-[color:var(--mix-accent)]'
+                                    : 'text-white/80 hover:text-white',
+                            )}
+                        >
+                            Contact
                         </Link>
                         <span className="h-4 w-px bg-white/10" />
                     </>
