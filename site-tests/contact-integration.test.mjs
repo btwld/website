@@ -27,3 +27,15 @@ test('posts the contact form to Resend and forwards it to the team', () => {
   assert.match(route, /thomas@conceptatech\.com/)
   assert.match(route, /replyTo: input\.email/)
 })
+
+test('protects the contact form with Cloudflare Turnstile', () => {
+  const page = readFileSync(join(root, 'components/contact/ContactPage.tsx'), 'utf8')
+  const route = readFileSync(join(root, 'src/app/api/contact/route.ts'), 'utf8')
+
+  assert.match(page, /challenges\.cloudflare\.com\/turnstile\/v0\/api\.js/)
+  assert.match(page, /NEXT_PUBLIC_TURNSTILE_SITE_KEY/)
+  assert.match(page, /turnstileToken/)
+  assert.match(route, /turnstile\/v0\/siteverify/)
+  assert.match(route, /TURNSTILE_SECRET_KEY/)
+  assert.match(route, /status: 403/)
+})

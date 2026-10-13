@@ -14,9 +14,37 @@ const contactSchema = z.object({
   message: z.string().trim().min(1, "Please enter a message").max(5000),
   // Honeypot: hidden from people, filled in by naive bots.
   website: z.string().optional(),
+  // Cloudflare Turnstile response token (max 2048 chars per Cloudflare docs).
+  turnstileToken: z.string().max(2048).optional(),
 });
 
 type ContactInput = z.infer<typeof contactSchema>;
+
+const TURNSTILE_VERIFY_URL =
+  "https://challenges.cloudflare.com/turnstile/v0/siteverify";
+
+async function verifyTurnstile(token: string | undefined, ip: string | null) {
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!secret) {
+    // Allow local development without Turnstile keys; never in production.
+    return process.env.NODE_ENV !== "production";
+  }
+  if (!token) return false;
+
+  const body = new URLSearchParams({ secret, response: token });
+  if (ip) body.set("remoteip", ip);
+
+  const res = await fetch(TURNSTILE_VERIFY_URL, { method: "POST", body });
+  const data = (await res.json()) as {
+    success: boolean;
+    "error-codes"?: string[];
+  };
+
+  if (!data.success) {
+    console.warn("[contact] turnstile rejected:", data["error-codes"]);
+  }
+  return data.success;
+}
 
 function escapeHtml(value: string) {
   return value
@@ -62,6 +90,20 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: true, message: "Thanks — we'll be in touch soon." },
         { status: 200 }
+      );
+    }
+
+    const ip =
+      request.headers.get("cf-connecting-ip") ??
+      request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+      null;
+    if (!(await verifyTurnstile(input.turnstileToken, ip))) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "We couldn't verify you're human. Please try again.",
+        },
+        { status: 403 }
       );
     }
 

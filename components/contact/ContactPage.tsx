@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import Script from "next/script";
 import { ArrowUpRight, CheckCircle2, MapPin, Phone } from "lucide-react";
 import { Button } from "../Button";
 import {
@@ -14,12 +15,67 @@ import { HeroBackground } from "../HeroBackground";
 
 type Status = "idle" | "loading" | "success" | "error";
 
+type Turnstile = {
+  render: (
+    container: HTMLElement,
+    options: {
+      sitekey: string;
+      theme?: "light" | "dark" | "auto";
+      callback?: (token: string) => void;
+      "expired-callback"?: () => void;
+      "error-callback"?: () => void;
+    }
+  ) => string;
+  reset: (widgetId: string) => void;
+  remove: (widgetId: string) => void;
+};
+
+declare global {
+  interface Window {
+    turnstile?: Turnstile;
+  }
+}
+
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
 const EMPTY_FORM = { name: "", email: "", subject: "", message: "", website: "" };
 
 export function ContactPage() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [status, setStatus] = useState<Status>("idle");
   const [message, setMessage] = useState("");
+  const [turnstileReady, setTurnstileReady] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const widgetIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const container = turnstileRef.current;
+    const turnstile = window.turnstile;
+    if (!TURNSTILE_SITE_KEY || !turnstileReady || !container || !turnstile) {
+      return;
+    }
+
+    const widgetId = turnstile.render(container, {
+      sitekey: TURNSTILE_SITE_KEY,
+      theme: "dark",
+      callback: setTurnstileToken,
+      "expired-callback": () => setTurnstileToken(""),
+      "error-callback": () => setTurnstileToken(""),
+    });
+    widgetIdRef.current = widgetId;
+
+    return () => {
+      turnstile.remove(widgetId);
+      widgetIdRef.current = null;
+    };
+  }, [turnstileReady]);
+
+  function resetTurnstile() {
+    // Tokens are single-use, so a failed submit needs a fresh one.
+    setTurnstileToken("");
+    if (widgetIdRef.current) window.turnstile?.reset(widgetIdRef.current);
+  }
 
   function update(field: keyof typeof EMPTY_FORM) {
     return (
@@ -31,6 +87,12 @@ export function ContactPage() {
     e.preventDefault();
     if (status === "loading") return;
 
+    if (TURNSTILE_SITE_KEY && !turnstileToken) {
+      setStatus("error");
+      setMessage("Please wait for the verification to finish.");
+      return;
+    }
+
     setStatus("loading");
     setMessage("");
 
@@ -38,7 +100,7 @@ export function ContactPage() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, turnstileToken }),
       });
       const data = await res.json();
 
@@ -49,10 +111,12 @@ export function ContactPage() {
       } else {
         setStatus("error");
         setMessage(data.message || "Something went wrong. Please try again.");
+        resetTurnstile();
       }
     } catch {
       setStatus("error");
       setMessage("Something went wrong. Please try again.");
+      resetTurnstile();
     }
   }
 
@@ -60,6 +124,13 @@ export function ContactPage() {
 
   return (
     <>
+      {TURNSTILE_SITE_KEY && (
+        <Script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"
+          strategy="afterInteractive"
+          onReady={() => setTurnstileReady(true)}
+        />
+      )}
       <HeroBackground />
       <main className="contact-main relative z-10">
         <header className="contact-header">
@@ -145,6 +216,9 @@ export function ContactPage() {
                   value={form.website}
                   onChange={update("website")}
                 />
+                {TURNSTILE_SITE_KEY && (
+                  <div ref={turnstileRef} className="contact-turnstile" />
+                )}
                 <div className="contact-actions">
                   <Button
                     type="submit"
@@ -310,6 +384,10 @@ export function ContactPage() {
           width: 1px;
           height: 1px;
           opacity: 0;
+        }
+
+        .contact-turnstile {
+          min-height: 65px;
         }
 
         .contact-actions {
