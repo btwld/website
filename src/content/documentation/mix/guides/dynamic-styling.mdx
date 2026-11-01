@@ -149,6 +149,8 @@ PressableBox(
 )
 ```
 
+Since Mix 2.3.0, a composed `BoxStyler` can also create this interaction boundary with `style.pressable(onPress: () {}, child: const Text('Focus me'))`. It returns a `PressableBox`, so the same focus and disabled variants apply. The explicit forms above remain supported for earlier versions and other widget surfaces. See [BoxStyler shorthand](/documentation/mix/widgets/pressable#boxstyler-shorthand-mix-230).
+
 ### Theme
 
 | Method | Description |
