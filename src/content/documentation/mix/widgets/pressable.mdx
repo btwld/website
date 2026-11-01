@@ -44,6 +44,26 @@ PressableBox(
 )
 ```
 
+## BoxStyler Shorthand (Mix 2.3.0+)
+
+Since Mix 2.3.0, `.pressable(...)` creates a `PressableBox` directly from a composed `BoxStyler`:
+
+```dart
+final button = BoxStyler()
+    .color(Colors.blue)
+    .padding(.all(16))
+    .onPressed(.color(Colors.blue.shade900));
+
+button.pressable(
+  onPress: () => print('Pressed'),
+  child: const Text('Save'),
+);
+```
+
+The method returns a `PressableBox` and requires `child` in the same call. It accepts the same interaction parameters and defaults as `PressableBox`, with the receiving styler supplying `style`. Reuse the styler to create independent widgets with their own callbacks, keys, focus nodes, and controllers.
+
+`PressableBox(style: button, ...)` remains supported, including on Mix versions before 2.3.0. The shorthand is available on `BoxStyler`; use `Pressable` directly for interaction around other widget surfaces.
+
 ## Interactive Preview
 
 <FlutterPreview

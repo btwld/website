@@ -107,6 +107,8 @@ This is useful for concise widget composition, especially when building reusable
 ### `Pressable` and `PressableBox`
 This is equivalent to Flutter's **GestureDetector**, **MouseRegion**, and **Focus** widgets but with enhanced interaction state management and styling capabilities. Learn more [here](/documentation/mix/widgets/pressable).
 
+Since Mix 2.3.0, `BoxStyler.pressable(onPress: ..., child: ...)` creates a `PressableBox` directly from the style. This shorthand is specific to `BoxStyler`; use `Pressable` for other widget surfaces. The explicit `PressableBox` constructor below remains supported. See [BoxStyler shorthand](/documentation/mix/widgets/pressable#boxstyler-shorthand-mix-230).
+
 ```dart
 Pressable(
   onPress: () => print('Pressed'),

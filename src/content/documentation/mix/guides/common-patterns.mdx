@@ -36,6 +36,8 @@ PressableBox(
 )
 ```
 
+Since Mix 2.3.0, you can also compose the `BoxStyler` first and create the button with `button.pressable(onPress: () => print('tapped'), child: const Text('Submit'))`. This returns a `PressableBox` with the same interaction parameters. The explicit constructor above remains supported on earlier versions too. See [BoxStyler shorthand](/documentation/mix/widgets/pressable#boxstyler-shorthand-mix-230).
+
 `.onHovered()` and `.onPressed()` work on any Styler. `.onFocused()` and `.onDisabled()` require a `PressableBox` (or a `Pressable` ancestor) to provide focus and disabled state — without that source, they won't activate.
 
 <Callout type="info">
