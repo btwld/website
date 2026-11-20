@@ -37,7 +37,6 @@ Ack ships codecs for the most common boundary conversions:
 | `Ack.datetime()` | ISO 8601 `String` ↔ `DateTime` | must be UTC; leap-second strings are rejected |
 | `Ack.uri()` | `String` ↔ `Uri` | absolute URI (scheme + host) |
 | `Ack.duration()` | milliseconds `int` ↔ `Duration` | whole milliseconds |
-| `Ack.enumCodec(values)` | enum-name `String` ↔ enum value | one of `values` |
 
 ```dart
 final schema = Ack.object({
@@ -106,9 +105,25 @@ Errors surface as typed [`SchemaError`](/documentation/ack/essentials/error-hand
 - `SchemaEncodeError` — encoding failed (for example, a one-way `transform`, or a
   runtime invariant violation such as a non-UTC `DateTime` for `Ack.datetime()`).
 
+An `Error` thrown by a `decode` (or `transform`) or `encode` function is a
+programming bug, not bad data, so it propagates out of `parse` / `safeParse` and
+`encode` / `safeEncode` with its original stack trace at every nesting level —
+inside an object, list, map, or union, too. Throw an `Exception` (or express the
+rule with an `input:` or `output:` schema) to signal a value the codec cannot
+decode or encode.
+
 ## Codecs and JSON Schema
 
 A codec exports the JSON Schema of its **boundary** (input) schema — that is the shape that crosses the wire. For example, `Ack.datetime()` exports as `string` with `format: date-time`. The runtime type and decode/encode logic are not part of the exported schema. See [JSON Serialization](/documentation/ack/essentials/json-serialization).
+
+Constraints added to a codec validate its **runtime** values, which the encoder
+may map to something else entirely, so they are enforced locally but not
+published: the export omits the keyword and `toSchemaModel().warnings` reports a
+`codec_runtime_constraint_not_exported` warning. Put rules the wire should
+advertise on the input schema instead — `Ack.string().minLength(5).codec(...)`
+exports `minLength: 5`, while `Ack.string().codec(...).minLength(5)` does not.
+`Ack.duration()` is the exception: its boundary is the milliseconds its `min()`
+and `max()` already compare, so those constraints do export.
 
 ## Next steps
 

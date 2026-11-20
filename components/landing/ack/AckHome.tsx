@@ -192,12 +192,12 @@ export function AckHome() {
             <div className="ack-feature-copy">
               <span className="ack-feature-index">TWO-WAY MODEL GENERATION</span>
               <h3>Own the schema—or the class.</h3>
-              <p>Use <code>@AckInfer()</code> to generate an immutable model from a schema, or <code>@AckModel()</code> to derive a validated schema and JSON helpers from your class.</p>
+              <p>Use <code>@Schemable()</code> on a schema to generate an immutable model, or on a class to derive a validated schema and JSON helpers.</p>
               <Link href="/documentation/ack/advanced/typesafe-schemas">Generate models and schemas <span aria-hidden="true">→</span></Link>
             </div>
             <div className="ack-mini-code">
               <span className="ack-sample-label">user_schema.dart · optional generator</span>
-              <pre tabIndex={0} aria-label="Generate a model from a schema or a schema from a model"><code><span className="tok-annotation">@AckInfer</span>(){`\n`}<span className="tok-keyword">final</span> userSchema ={`\n`}  <span className="tok-type">Ack</span>.<span className="tok-call">object</span>(...);{`\n`}<span className="tok-comment">// → User</span>{`\n\n`}<span className="tok-annotation">@AckModel</span>(){`\n`}<span className="tok-keyword">final class</span> Account{`\n`}    <span className="tok-keyword">with</span> _$AccountAck {'{'} ... {'}'}{`\n`}<span className="tok-comment">// → AccountSchema</span></code></pre>
+              <pre tabIndex={0} aria-label="Generate a model from a schema or a schema from a model"><code><span className="tok-annotation">@Schemable</span>(){`\n`}<span className="tok-keyword">final</span> userSchema ={`\n`}  <span className="tok-type">Ack</span>.<span className="tok-call">object</span>(...);{`\n`}<span className="tok-comment">// → User</span>{`\n\n`}<span className="tok-annotation">@Schemable</span>(){`\n`}<span className="tok-keyword">final class</span> Account{`\n`}    <span className="tok-keyword">with</span> _$AccountAck {'{'} ... {'}'}{`\n`}<span className="tok-comment">// → AccountSchema</span></code></pre>
             </div>
           </article>
 
@@ -213,7 +213,7 @@ export function AckHome() {
               <div><dt><code>Ack.datetime()</code></dt><dd>ISO String ↔ UTC DateTime</dd></div>
               <div><dt><code>Ack.uri()</code></dt><dd>String ↔ Uri</dd></div>
               <div><dt><code>Ack.duration()</code></dt><dd>milliseconds int ↔ Duration</dd></div>
-              <div><dt><code>Ack.enumCodec(values)</code></dt><dd>name String ↔ enum value</dd></div>
+              <div><dt><code>Ack.enumValues(values)</code></dt><dd>name String ↔ enum value</dd></div>
               <div className="is-custom"><dt><code>Ack.codec(...)</code></dt><dd>Boundary value ↔ your type</dd></div>
             </dl>
           </article>

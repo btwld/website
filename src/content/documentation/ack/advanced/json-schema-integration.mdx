@@ -5,7 +5,281 @@ description: Export Ack schemas as JSON Schema to document APIs, forms, and LLM 
 
 # JSON Schema Integration
 
-Your Ack [schema](/documentation/ack/essentials/schemas) already describes your data's shape — so you can export it as JSON Schema (Draft-7) and reuse it to document an API, drive a form library, or define an LLM tool, all from one source of truth.
+Your Ack [schema](/documentation/ack/essentials/schemas) already describes your data's shape — so you can import and export JSON Schema (preserving Draft 2020-12 resources for imported schemas and emitting Draft-7 for native schemas) and reuse it to document an API, drive a form library, or define an LLM tool, all from one source of truth.
+
+## Importing published schemas
+
+Use strict `Ack.fromJsonSchema()` to turn a decoded JSON Schema document
+(a map or boolean, not a JSON string) into an
+`AckSchema<Object, Object>`. The input dialect is draft 2020-12 or Draft-7
+(`http(s)://json-schema.org/draft-07/schema(#)`), including when `$schema` is
+absent. Other explicitly declared dialects are rejected.
+
+Only the declared `$schema` string is checked — a document is never matched
+against a dialect by shape. Draft-7 documents are evaluated under the same
+supported subset: tuple-form `items` (a Draft-7 array) is rejected, and `$ref`
+siblings are applied as in draft 2020-12. Draft-4 boolean `exclusiveMinimum`
+and `exclusiveMaximum` values are rejected, and Draft-4 `integer` rejects `1.0`
+where this importer accepts it.
+
+```dart
+import 'package:ack/ack.dart';
+
+final AckSchema<Object, Object> schema = Ack.fromJsonSchema({
+  'type': 'object',
+  'properties': {
+    'name': {'type': 'string'},
+    'age': {'type': 'integer', 'minimum': 0},
+  },
+  'required': ['name'],
+  'additionalProperties': false,
+});
+
+final user = schema.parse({'name': 'Ada', 'age': 36});
+final exported = schema.toJsonSchema();
+```
+
+The returned abstract `AckSchema<Object, Object>` composes with native
+Ack schemas; its runtime implementation is internal. It validates JSON values
+without injecting defaults or applying coercions. Parsing returns a detached,
+recursively unmodifiable value.
+Required means **key present**, not **non-null**; an omitted `type` does not
+implicitly require an object, string, or array. Integral numbers such as `1.0`
+match `integer`, and null array elements are supported.
+
+### Design: reuse the existing export boundary
+
+`AckSchema.toJsonSchema()` remains the export API. Imported schemas participate
+in the same `AckSchema` → `AckSchemaModel` → JSON Schema path as native schemas;
+the builder bridge delegates to that path too. There is no second public
+exporter or dependency on a Flutter runtime.
+
+You can import an existing export directly:
+
+```dart
+final document = Ack.object({'name': Ack.string()}).toJsonSchema();
+final AckSchema<Object, Object> schema = Ack.fromJsonSchema(document);
+final exportedAgain = schema.toJsonSchema();
+```
+
+The source document and executable validator are distinct.
+`Ack.fromJsonSchema()` is the single import entry point and always imports
+strictly. The importer preserves supported JSON validation semantics,
+not the original Dart declaration: JSON cannot recover codecs, Dart model
+types, custom callbacks, or refinements that were absent from the export.
+Exports containing unsupported keywords are rejected.
+
+### Importing `format`
+
+By default, `Ack.fromJsonSchema()` treats `format` as an annotation (matching
+JSON Schema Draft 2020-12's default Core/Applicator/Validation vocabularies).
+Pass `assertFormats: true` (or declare the Draft 2020-12 `format-assertion`
+vocabulary in `$vocabulary`) to enable runtime format assertions for the full
+Draft 2020-12 format suite (`date-time`, `date`, `time`, `duration`, `email`,
+`idn-email`, `hostname`, `idn-hostname`, `ipv4`, `ipv6`, `uri`, `uri-reference`,
+`iri`, `iri-reference`, `uuid`, `uri-template`, `json-pointer`,
+`relative-json-pointer`, `regex`) as well as standard numeric format bounds
+(`int32`, `int64`, `uint32`, `uint64`, `float`, `double`):
+
+```dart
+final timestamp = Ack.fromJsonSchema(
+  {'type': 'string', 'format': 'date-time'},
+  assertFormats: true,
+);
+timestamp.parse('2024-02-29T12:34:56.123456789+02:00');
+```
+
+Date-time validation uses RFC 3339 syntax, calendar dates, offsets, and the
+bundled list of announced positive leap-second dates. The list is updated in
+Ack releases when IERS announces new leap seconds; validation never fetches
+data at runtime. Parsing preserves the original string, including its
+fractional precision and offset. It does not convert it to a Dart `DateTime`.
+
+Hostname and email domain assertions use the complete IANA IDNA2008
+derived-property registry pinned to Unicode 12.0.0, with contextual and Bidi
+checks using matching Unicode data. Disallowed and unassigned code points,
+including characters assigned after Unicode 12, are rejected after hostname
+input mapping. The data is bundled; validation does not fetch it at runtime.
+
+Export retains `format` in imported schemas. External JSON Schema validators may
+treat `format` as an annotation unless configured to assert it.
+
+### Supported import subset
+
+| Area | Keywords |
+| --- | --- |
+| Schemas and types | Boolean schemas, `type` (including lists and `null`) |
+| Equality | `enum`, `const`, including nested JSON values and empty enums |
+| Objects | `properties`, `required`, boolean/schema `additionalProperties`, `patternProperties`, `propertyNames`, `minProperties`, `maxProperties`, `dependentRequired`, `dependentSchemas`, `unevaluatedProperties` |
+| Arrays | Single-schema `items`, `prefixItems`, `contains`, `minContains`, `maxContains`, `minItems`, `maxItems`, `uniqueItems`, `unevaluatedItems` |
+| Strings | `minLength`, `maxLength` (Unicode code points), `pattern` (unanchored ECMA-262 search in Unicode mode) |
+| Numbers | `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`, `multipleOf` (exact decimal division) |
+| Composition | `anyOf`, `allOf`, exclusive `oneOf`, `not`, `if`/`then`/`else`; sibling assertions are intersected |
+| References | `$ref`, `$id`, `$anchor`, `$defs`, `definitions`, `$dynamicRef`, `$dynamicAnchor`, bundled offline 2020-12 meta-schemas; local/cross-document JSON Pointers and structural recursion |
+| Annotations | `title`, `description`, `default`, `examples`, `$comment`, `readOnly`, `writeOnly`, `deprecated`, `contentEncoding`, `contentMediaType`, `contentSchema`, `x-*` vendor extensions |
+| Format | Full Draft 2020-12 format suite and standard numeric formats (`int32`, `int64`, `uint32`, `uint64`, `float`, `double`); asserted when `assertFormats: true` or `$vocabulary` enables `format-assertion` |
+
+`pattern` compiles with ECMA-262's `u` flag, as the JSON Schema Test Suite
+requires and Ajv does by default. `.` matches one code point, so
+`pattern: "^.$"` accepts `"😀"`, and `\p{...}` is a Unicode property escape.
+A pattern that is invalid in Unicode mode fails import with an
+`invalid_schema` diagnostic. For example, an escaped hyphen outside a character
+class (`^\d{3}\-\d{4}$`) is invalid; write the hyphen unescaped.
+
+`Ack.string().matches()` uses Dart's default `RegExp`, without `u`. A native
+pattern can match differently after export and import, and a native pattern
+that is invalid in Unicode mode exports a schema that this importer and Ajv
+reject.
+
+Both native `.multipleOf()` and imported `multipleOf` divide exactly on the
+decimal digits of the number, as the JSON Schema Test Suite requires, so `0.3`
+and `0.6` are multiples of `0.1`, `1e308` is a multiple of `0.5`, and an
+unrounded binary-float sum such as `0.1 + 0.2` (`0.30000000000000004`) is not.
+
+Unknown keywords, including non-`x-*` keywords, are accepted as annotations.
+An unsupported vocabulary marked as required (`true`) in `$vocabulary` fails
+import with `unsupported_vocabulary`; unsupported optional vocabularies do not.
+
+### References, default Draft 2020-12 export, and Draft-7 lowering
+
+Supply decoded documents by retrieval URI. Relative keys and references resolve
+against `baseUri`; nested `$id` values establish new resource scopes. When no
+base is provided, the importer uses `ack-import:///root.json`. The importer
+never reads files or fetches URLs (standard `https://json-schema.org/draft/2020-12/...`
+meta-schemas are bundled offline).
+
+```dart
+final AckSchema<Object, Object> schema = Ack.fromJsonSchema(
+  {r'$ref': r'types.json#/$defs/message'},
+  baseUri: Uri.parse('https://example.com/protocol/root.json'),
+  documents: {
+    Uri.parse('types.json'): {
+      r'$defs': {
+        'message': {
+          'type': 'object',
+          'properties': {'text': {'type': 'string'}},
+          'required': ['text'],
+        },
+      },
+    },
+  },
+);
+```
+
+In Ack 2.0, `schema.toJsonSchema()` and `schema.toSchemaModel()` **preserve
+imported Draft 2020-12 resources by default** (`$defs`, `$dynamicRef`,
+`unevaluatedProperties`, `prefixItems`, etc.). When you need a legacy
+self-contained Draft-7 document with root-scoped `definitions` and rewritten
+references, call `schema.toJsonSchemaDraft7()` or `schema.toSchemaModelDraft7()`
+(which throws `UnsupportedError` if the imported schema relies on 2020-12-only
+semantics).
+
+### Generating Dart models from `.schema.json` files
+
+With `ack_generator`, enable the opt-in `ack_generator:ack_json_schema` builder
+in `build.yaml` to compile any `lib/**/*.schema.json` Draft 2020-12 asset into
+Dart models:
+
+```yaml
+targets:
+  $default:
+    builders:
+      ack_generator:ack_json_schema:
+        enabled: true
+        generate_for:
+          - lib/**/*.schema.json
+        options:
+          assert_formats: false
+```
+
+`ack_generator:ack_json_schema` emits `<name>.schema.dart` (declaring
+`part '<name>.schema.g.dart';`), which `ack_generator:ack_generator` compiles
+in the same `dart run build_runner build` pass:
+
+```dart
+import 'person.schema.dart';
+
+final person = Person.parse({'name': 'Ada', 'age': 36});
+print(person.name);     // String
+print(person.toJson()); // {'name': 'Ada', 'age': 36}
+```
+
+- **Typed `@Schemable()` models** are emitted for named non-null objects,
+  `$ref` definitions, inline objects, string-keyed maps, arrays with non-null
+  items, primitives/bounds, string enums, and simple field unions.
+- **Validated value models** (wrapping `Ack.fromJsonSchema(...)`) are emitted
+  automatically for shapes that Dart classes cannot represent faithfully
+  without changing validation semantics (such as regex `pattern` assertions,
+  named scalar unions, recursive/dynamic `$dynamicRef` references, `oneOf`/`allOf`/`not`
+  composition, `multipleOf`, `unevaluatedProperties`, or `assert_formats: true`).
+- For programmatic code generation outside `build_runner`, call
+  `generateAckSchemaLibrary()` from `package:ack_generator/ack_generator.dart`.
+
+### Validation errors
+
+When a value fails a keyword of an imported schema, the error is a
+`JsonSchemaValidationError`. It names the failing keyword and locates it in the
+source schema, so callers do not parse the message:
+
+```dart
+final schema = Ack.fromJsonSchema({
+  'properties': {
+    'tags': {
+      'items': {'enum': ['x', 'y']},
+    },
+  },
+});
+final error = schema.safeParse({'tags': ['x', 'z']}).getError();
+if (error is JsonSchemaValidationError) {
+  print(error.keyword); // enum
+  print(error.documentUri); // ack-import:///root.json
+  print(error.pointer); // #/properties/tags/items/enum
+  print(error.keywordLocation); // /properties/tags/items/enum
+  print(error.path); // #/tags/1
+}
+```
+
+`documentUri` and `pointer` follow `$ref` into the referenced document, and
+use the same form as `JsonSchemaImportDiagnostic`. The pointer starts at the
+document root, also inside a subschema that declares its own `$id`. `keyword`
+is empty when the failing subschema is `false`. Only the first failure is
+reported. A root `null` that the source schema rejects returns the standard
+`SchemaConstraintsError` for a missing value, as other non-nullable Ack schemas
+do.
+
+`keywordLocation` is the evaluation path from the root schema to the failing
+keyword. It includes each `$ref` it passed through, so two applicators that
+share a definition report different locations, while their `pointer` is the
+same. It uses the plain JSON Pointer form of the Draft 2020-12
+`keywordLocation` output field, with no `#` and no percent-encoding. It is
+empty when the root schema is `false`.
+
+### Importing json_schema_builder models
+
+The existing bridge works in both directions:
+
+```dart
+import 'package:ack/ack.dart';
+import 'package:ack_json_schema_builder/ack_json_schema_builder.dart';
+import 'package:json_schema_builder/json_schema_builder.dart' as jsb;
+
+final AckSchema<Object, Object> ackSchema =
+    jsb.Schema.string(minLength: 2).toAckSchema();
+final builderSchema = ackSchema.toJsonSchemaBuilder();
+```
+
+`toAckSchema({baseUri, documents, assertFormats})` returns the validator
+directly and accepts `Map<Uri, jsb.Schema>` bundles. `toJsonSchemaBuilder()`
+preserves imported Draft 2020-12 resources by default; use
+`toJsonSchemaBuilderDraft7()` when Draft-7 lowering is required.
+
+### A2UI compatibility and verification
+
+Offline regression fixtures pin five representative A2UI v0.9 protocol schemas
+to upstream commit `f5e945a93da36a5d126228f2ad6fbe68809ef8f7`. All five A2UI
+v0.9 schemas (including the basic catalog with `unevaluatedProperties`,
+conditionals, and meta-schema references) import and validate cleanly in Ack 2.0,
+and the full upstream JSON Schema Draft 2020-12 test suite passes offline.
 
 ## Generating JSON schemas
 
@@ -230,6 +504,9 @@ The nested nullable-union shape is intentional for generic Draft-7 output and ma
 -   **`additionalProperties`:** `Ack.object(..., additionalProperties: false)`
     becomes `additionalProperties: false`; `additionalProperties: true` is
     emitted as the boolean `true`.
+-   **`Ack.map(valueSchema)`:** Exported as
+    `{"type": "object", "additionalProperties": <value schema>}`. Map keys are
+    always strings, so no `propertyNames` keyword is emitted.
 -   **`Ack.any()`:** Runtime validation accepts non-null JSON-safe values.
     JSON-like adapter exports represent those JSON-compatible values and attach
     an `ack_any_json_boundary` warning to the `AckSchemaModel`.
@@ -238,7 +515,7 @@ The nested nullable-union shape is intentional for generic Draft-7 output and ma
     to the lazy reference are runtime-only and are reported as schema-model
     warnings rather than emitted beside `$ref`.
 -   **Date/time range constraints:** Draft-7 has no standard `formatMinimum` or
-    `formatMaximum` keywords. Ack validates `.min()` and `.max()` at runtime and
+    `formatMaximum` keywords. ACK validates `.min()` and `.max()` at runtime and
     records schema-model warnings instead of rendering non-standard keywords.
 -   **List item nullability:** `Ack.list(...)` does not support nullable item
     schemas yet. Make the list itself nullable with `Ack.list(item).nullable()`

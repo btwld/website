@@ -70,23 +70,26 @@ final roleSchema = Ack.enumValues(Role.values);
 
 ### Number
 
-Numeric schemas are strict about their Dart runtime type. `Ack.integer()`
-rejects `double` values (even whole ones like `42.0`); `Ack.double()` rejects
-`int` values. Use `Ack.number()` when either is acceptable. `Ack.double()` and
-`Ack.number()` reject non-finite values (`NaN` and infinities) by default.
+Numeric schemas follow JSON Schema value semantics so native and web builds
+agree. `Ack.integer()` accepts finite numbers with no fractional part and
+losslessly normalizes them to `int`. `Ack.double()` accepts finite numbers that
+can be represented exactly as `double` and normalizes them to `double`.
+`Ack.number()` accepts either representation and preserves it. Add `.safe()` to
+an integer schema when values must remain exact in JavaScript's portable integer
+range. All numeric schemas reject `NaN` and infinities.
 
 ```dart
-// Integer validation (int only — 42.0 would fail)
+// Integer validation (42 and 42.0 both parse to int)
 final ageSchema = Ack.integer()
   .min(0)
   .max(120);
 
-// Double validation (double only — 42 would fail)
+// Double validation (42 and 42.0 both parse to double when lossless)
 final priceSchema = Ack.double()
   .positive()
   .multipleOf(0.5); // Use factors that avoid floating point rounding issues
 
-// Either int or double
+// Preserve an input that is already int or double
 final amountSchema = Ack.number().positive();
 
 final temperatureSchema = Ack.integer(); // Any integer
@@ -224,6 +227,21 @@ final flexibleSchema = Ack.object({
 
 Use `Ack.any().nullable()` to also accept `null`.
 
+### Maps
+
+Use `Ack.map(...)` for a JSON object with arbitrary string keys whose values
+all share one schema:
+
+```dart
+final settingsSchema = Ack.object({
+  'scores': Ack.map(Ack.integer().min(0)), // string keys, int values
+  'metadata': Ack.map(Ack.any().nullable()), // a JsonMap
+});
+```
+
+Map values may be `null` only when the value schema is nullable. Use
+`Ack.object(...)` when the object has declared properties.
+
 ## Optional vs nullable
 
 **`.nullable()`** — Field must be present but can be `null`:
@@ -271,6 +289,26 @@ final userSchema = Ack.object({
 {'name': 'John', 'bio': null}
 {'name': 'John', 'bio': 'Developer'}
 ```
+
+**`.withDefault(value)`** — A missing field parses as `value`. A present `null`
+still fails unless the field is nullable:
+
+```dart
+final userSchema = Ack.object({
+  'role': Ack.string().withDefault('member'),
+  'theme': Ack.string().nullable().withDefault('light'),
+});
+
+userSchema.parse({});              // {'role': 'member', 'theme': 'light'}
+userSchema.parse({'theme': null}); // {'role': 'member', 'theme': 'light'}
+userSchema.safeParse({'role': null}); // ❌ role is not nullable
+userSchema.encode({'role': null, 'theme': null}); // defaults: member and light
+```
+
+In 2.0.0-beta.2, object encoding uses the default for both missing and null
+defaulted fields. Parsing a present null still requires a nullable property.
+
+> **Distinguishing omitted vs. `null` in generated models (`JsonMaybe<T>`):** In raw map schemas (`Ack.object`), `map.containsKey('bio')` tells you whether `'bio'` was omitted or set to `null`. In class-first `@Schemable()` models, declare the field as `JsonMaybe<String>` (`JsonAbsent` when omitted, `JsonValue(null)` when explicitly `null`, `JsonValue('...')` when present) so `PATCH` requests round-trip both states accurately. See [Model Code Generation](/documentation/ack/advanced/typesafe-schemas).
 
 ## Object schema operations
 

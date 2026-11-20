@@ -6,7 +6,8 @@
     "check:previews": "node scripts/check-previews-manifest.mjs",
     "test:site": "node --test site-tests/*.test.mjs",
     "start": "next start",
-    "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind"
+    "postbuild": "pagefind --site .next/server/app --output-path public/_pagefind",
+    "sync:ack-llms": "node scripts/sync-ack-llms.mjs"
   },
   "dependencies": {
     "@tailwindcss/postcss": "^4.2.2",

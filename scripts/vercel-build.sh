@@ -88,6 +88,13 @@ cd "$PROJECT_DIR"
 pnpm run check:previews
 
 # ============================================================================
+# Mirror Ack's llms.txt from btwld/ack
+# ============================================================================
+echo "==> Syncing public/ack/llms.txt from btwld/ack..."
+cd "$PROJECT_DIR"
+node scripts/sync-ack-llms.mjs
+
+# ============================================================================
 # Build Next.js
 # ============================================================================
 echo "==> Building Next.js site..."

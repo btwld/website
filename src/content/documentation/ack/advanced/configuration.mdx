@@ -49,9 +49,12 @@ new response fields while still validating every field your application uses.
 
 ### Default values
 
-Use `.withDefault(value)` when a `null` or missing object field should receive
-a runtime value during parsing. The default must satisfy the schema's runtime
-type and constraints.
+Use `.withDefault(value)` when a missing object field should receive a runtime
+value during parsing. The default must satisfy the schema's runtime type and
+constraints, and it exports as the JSON Schema `default`. A present `null` is a
+value, not a missing key: it fails unless the field is also nullable, in which
+case `.nullable().withDefault(value)` parses it as the default too. Parsing
+`null` with a `withDefault` schema directly returns the default.
 
 ```dart
 final settingsSchema = Ack.object({
@@ -59,6 +62,16 @@ final settingsSchema = Ack.object({
   'pageSize': Ack.integer().min(1).max(100).withDefault(20),
 });
 ```
+
+```dart
+settingsSchema.parse({});                  // {'theme': 'light', 'pageSize': 20}
+settingsSchema.safeParse({'theme': null}); // fails: theme is not nullable
+```
+
+During object encoding, both a missing defaulted field and a field holding
+`null` encode as the validated default, through the field's encoder. A nullable
+field without a default still encodes as `null`. These default/null rules are
+breaking changes in 2.0.0-beta.2.
 
 Defaults change the parsed result; `.optional()` only changes whether an object
 field is required.
@@ -94,8 +107,8 @@ Use `.constrain()` for reusable value-level checks and `.refine()` for cross-fie
 
 ## Code generation
 
-Annotate a top-level schema with `@AckInfer()` to generate an immutable model,
-or annotate a hand-written class with `@AckModel()` to generate its schema.
+Annotate a top-level schema with `@Schemable()` to generate an immutable model,
+or annotate a hand-written class with `@Schemable()` to generate its schema.
 See [Model Code Generation](/documentation/ack/advanced/typesafe-schemas) for both workflows.
 
 ## Related guides

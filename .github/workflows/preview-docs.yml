@@ -68,6 +68,9 @@ jobs:
       - name: Install Website Dependencies
         run: pnpm install
 
+      - name: Sync Ack API Index
+        run: ACK_LLMS_STRICT=1 pnpm run sync:ack-llms
+
       - name: Run Site Tests
         run: pnpm run test:site
 
