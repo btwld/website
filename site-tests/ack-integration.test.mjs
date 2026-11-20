@@ -52,7 +52,7 @@ test('wires Ack into the shared product shell', () => {
 test('migrates every Ack documentation page into its product namespace', () => {
   const pages = walk(ackContentRoot)
 
-  assert.equal(pages.length, 18)
+  assert.equal(pages.length, 20)
   for (const path of pages) {
     const source = readFileSync(path, 'utf8')
     assert.doesNotMatch(source, /\/documentation\/(?!ack\/)/)
@@ -115,16 +115,15 @@ test('features codecs and two-way model generation on Ack entry pages', () => {
 
   for (const source of [landing, overview]) {
     assert.match(source, /Codecs|CODECS/)
-    assert.match(source, /Model code generation|MODEL GENERATION/)
-    assert.match(source, /@AckInfer/)
-    assert.match(source, /@AckModel/)
-    assert.doesNotMatch(source, /@AckType|UserType/)
+    assert.match(source, /model (?:code )?generation/i)
+    assert.doesNotMatch(source, /@AckInfer|@AckModel|@AckType|UserType/)
     assert.match(source, /\/documentation\/ack\/advanced\/codecs/)
     assert.match(source, /\/documentation\/ack\/advanced\/typesafe-schemas/)
   }
+  assert.match(landing, /@Schemable/)
 })
 
-test('keeps Ack 1.2 setup and generated-part guidance current', () => {
+test('keeps Ack 2.0 setup and generated-part guidance current', () => {
   const installation = readFileSync(
     join(ackContentRoot, 'getting-started/installation.mdx'),
     'utf8',
@@ -133,24 +132,21 @@ test('keeps Ack 1.2 setup and generated-part guidance current', () => {
     join(ackContentRoot, 'advanced/typesafe-schemas.mdx'),
     'utf8',
   )
-  const llms = readFileSync(join(root, 'public/ack/llms.txt'), 'utf8')
   const ackSurface = [
     readFileSync(ackLanding, 'utf8'),
-    ...walk(ackContentRoot).map((path) => readFileSync(path, 'utf8')),
+    ...walk(ackContentRoot)
+      .filter((path) => !path.endsWith('/migration-guide.mdx'))
+      .map((path) => readFileSync(path, 'utf8').split('\n## Migrating from 1.x\n')[0]),
   ].join('\n')
 
-  assert.match(installation, /ack: \^1\.2\.0/)
-  assert.match(installation, /ack_annotations: \^1\.2\.0/)
-  assert.match(installation, /ack_generator: \^1\.2\.0/)
-  for (const source of [installation, generation, llms]) {
-    assert.match(source, /part '[-_a-z]+\.ack\.dart';/)
-    assert.match(source, /part '[-_a-z]+\.ack\.g\.dart';/)
-    assert.match(source, /@AckInfer/)
-    assert.match(source, /@AckModel/)
+  assert.match(installation, /ack:\s+\^2\.0\.0-beta\.3/)
+  assert.match(installation, /ack_generator:\s+\^2\.0\.0-beta\.3/)
+  for (const source of [installation, generation]) {
+    assert.match(source, /part '[-_a-z]+\.g\.dart';/)
+    assert.match(source, /@Schemable/)
   }
   assert.doesNotMatch(ackSurface, /github\.com\/conceptadev\/ack/)
-  assert.doesNotMatch(ackSurface, /@AckType|UserType/)
-  assert.match(llms, /Rename `@AckType\(\)` to `@AckInfer\(\)`/)
+  assert.doesNotMatch(ackSurface, /@AckType|UserType|@AckInfer|@AckModel|ack_annotations|\.ack\.(?:g\.)?dart|Ack\.enumCodec/)
 })
 
 test('showcases a User codec round trip across the Ack landing page', () => {
@@ -174,4 +170,16 @@ test('showcases a User codec round trip across the Ack landing page', () => {
   assert.match(landing, /<dl className="ack-codec-catalogue"/)
   assert.match(landing, /Ack\.codec\(\.\.\.\)/)
   assert.match(landing, /\/documentation\/ack\/advanced\/codecs/)
+})
+
+test('mirrors the Ack repository llms.txt', async () => {
+  const { fetchAckLlms, rewriteLinks } = await import('../scripts/sync-ack-llms.mjs')
+  const llms = readFileSync(join(root, 'public/ack/llms.txt'), 'utf8')
+
+  assert.equal(llms, await fetchAckLlms())
+  assert.doesNotMatch(llms, /\]\((?!https?:|mailto:|#)/)
+  assert.equal(
+    rewriteLinks('[Guide](docs/core-concepts/schemas.mdx)'),
+    '[Guide](https://github.com/btwld/ack/blob/main/docs/core-concepts/schemas.mdx)',
+  )
 })

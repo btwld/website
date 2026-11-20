@@ -1,210 +1,64 @@
-# Ack
+# Ack — branch-local API index
 
-> A schema validation library for Dart and Flutter with a fluent runtime API, bidirectional codecs, and two-way model/schema code generation.
+> Dart/Flutter schema validation, codecs, JSON Schema, and optional code generation.
 
-Ack validates untrusted boundary data with schemas built through the `Ack`
-factory. Annotate a schema with `@AckInfer()` to generate a model, or annotate a
-hand-written class with `@AckModel()` to generate its schema and JSON helpers.
-There is no `@AckSchema()` annotation; `AckSchema` is the runtime schema type.
+This checkout documents Ack 2.0.0-beta.3. Read the local files linked below so
+examples match the checked-out version. Package `pubspec.yaml` files own SDK
+and dependency constraints.
 
-## Packages
+## Find the owning guide
 
-1. `ack`: core runtime validation, codecs, and generated-model support
-2. `ack_annotations`: exposes `@AckInfer()` and `@AckModel()`
-3. `ack_generator`: generates models from schemas and schemas from models
-4. `ack_firebase_ai`: converts Ack schemas to Firebase AI structured-output schemas
-5. `ack_json_schema_builder`: converts Ack schemas to `json_schema_builder` schemas
+- [Core concepts and packages](https://github.com/btwld/ack/blob/main/README.md)
+- [Architecture choices and superseded designs](https://github.com/btwld/ack/blob/main/ARCHITECTURE.md)
+- [Agent workflow and generator safeguards](https://github.com/btwld/ack/blob/main/AGENTS.md)
+- [Installation](https://github.com/btwld/ack/blob/main/docs/getting-started/installation.mdx)
+- [Schema types and composition](https://github.com/btwld/ack/blob/main/docs/core-concepts/schemas.mdx)
+- [Presence, null, defaults, configuration](https://github.com/btwld/ack/blob/main/docs/core-concepts/configuration.mdx)
+- [Validation](https://github.com/btwld/ack/blob/main/docs/core-concepts/validation.mdx)
+- [Errors and safe parsing](https://github.com/btwld/ack/blob/main/docs/core-concepts/error-handling.mdx)
+- [Codecs and encoding](https://github.com/btwld/ack/blob/main/docs/core-concepts/codecs.mdx)
+- [JSON serialization](https://github.com/btwld/ack/blob/main/docs/core-concepts/json-serialization.mdx)
+- [Model code generation](https://github.com/btwld/ack/blob/main/docs/core-concepts/typesafe-schemas.mdx)
+- [Generator limitations and JSON Schema codegen](https://github.com/btwld/ack/blob/main/packages/ack_generator/README.md)
+- [JSON Schema import/export](https://github.com/btwld/ack/blob/main/docs/guides/json-schema-integration.mdx)
+- [Using ecosystem adapters](https://github.com/btwld/ack/blob/main/docs/guides/ecosystem-integrations.mdx)
+- [Writing an adapter](https://github.com/btwld/ack/blob/main/docs/guides/creating-schema-converter-packages.mdx)
+- [1.x to 2.0 migration and removed symbols](https://github.com/btwld/ack/blob/main/docs/getting-started/migration-guide.mdx)
+- [API quick reference](https://github.com/btwld/ack/blob/main/docs/api-reference/index.mdx)
+- [Contribution checks](https://github.com/btwld/ack/blob/main/CONTRIBUTING.md) and [release runbook](https://github.com/btwld/ack/blob/main/PUBLISHING.md)
 
-## Core runtime usage
+## Contracts easy to miss
 
-```dart
-import 'package:ack/ack.dart';
+- `AckSchema<Boundary, Runtime>` distinguishes wire data from Dart runtime values.
+  Parsing decodes; encoding validates and converts back. One-way transforms are
+  runtime parse helpers and cannot back generated models that must encode.
+- `safeParse` returns `SchemaResult`; programmer `Error` values in callbacks can
+  still propagate. Use the error-handling guide for the failure contract.
+- `optional` permits an omitted key; `nullable` permits a present null. Use
+  `JsonMaybe<T>` when a class must preserve omitted versus explicit-null keys.
+- `@Schemable`, `@AckKey`, and the `Is…`/`Has…` rule annotations (`@IsRequired`,
+  `@HasMinLength`, `@IsEmail`, …) come from `package:ack/ack.dart`. The
+  `Validate` namespace is deprecated and removed before Ack 2.0.0.
+  Generation uses one `part '<file>.g.dart';` and `dart run build_runner build`.
+  There is no `@AckSchema` annotation.
+- Generated constructors are unchecked. Use `parse`/`fromJson` for untrusted
+  input; generated JSON encoding validates. Hand-written constructors own any
+  defensive copying required for direct construction.
+- Generated models store typed fields or a `.value`; they do not implement Map,
+  List, or scalar interfaces. The model-generation guide owns supported shapes,
+  custom schema resolution, recursion, and unknown-property policies.
+- `Ack.preserveBoundary` validates through the inner object parser but returns a
+  detached immutable copy of the original JSON map, without invoking an encoder.
+  Inner defaults do not materialize into that copy.
+- Native schemas export Draft-7. Imported 2020-12 resources are preserved by
+  default; request Draft-7 lowering explicitly and handle unsupported conversion.
+  Formats are annotations unless assertion is requested or required by the dialect.
+- Non-JSON adapters traverse `AckSchemaModel`; JSON-map adapters can use
+  `toJsonSchema()`. Imported raw resources and references need explicit support.
+- MCP adapters validate typed inputs; callbacks own outputs. Firebase's adapter
+  passes JSON Schema through for `responseJsonSchema`, without provider-specific
+  keyword normalization. Validate generated or received data with Ack.
 
-final userSchema = Ack.object({
-  'name': Ack.string().minLength(2),
-  'email': Ack.string().email(),
-  'age': Ack.integer().min(0).optional(),
-});
-
-final result = userSchema.safeParse({
-  'name': 'Alice',
-  'email': 'alice@example.com',
-});
-```
-
-## Codecs
-
-Codecs decode a boundary value into a runtime value and encode it back.
-`parse` / `safeParse` decode; `encode` / `safeEncode` encode.
-
-- Built in: `Ack.date()`, `Ack.datetime()`, `Ack.uri()`, `Ack.duration()`, and
-  `Ack.enumCodec(values)`.
-- Custom: `Ack.codec(input: ..., decode: ..., encode: ...)`, or
-  `schema.codec<R>(decode: ..., encode: ...)` on an existing schema.
-- `schema.transform<R>(fn)` is one-way. It works for runtime parsing, but it is
-  rejected by generated models because they must encode back to the boundary.
-- A codec exports the JSON Schema of its boundary schema.
-
-## Model code generation
-
-Both directions use the same generated parts and build command. `@AckInfer()`
-is schema-first; `@AckModel()` is class-first.
-
-Every annotated library declares both generated parts:
-
-```dart
-import 'package:ack/ack.dart';
-import 'package:ack_annotations/ack_annotations.dart';
-
-part 'user_schema.ack.dart';
-part 'user_schema.ack.g.dart';
-
-@AckInfer()
-final addressSchema = Ack.object({
-  'street': Ack.string(),
-  'city': Ack.string(),
-});
-
-@AckInfer()
-final userSchema = Ack.object({
-  'name': Ack.string(),
-  'address': addressSchema,
-});
-```
-
-Run `dart run build_runner build`. `addressSchema` and `userSchema` generate
-`Address` and `User`. A custom `@AckInfer(name: 'Member')` value is used exactly.
-
-Generated object models provide:
-
-- an unchecked constructor with stored typed fields;
-- `User.parse(data)` and `User.safeParse(data)` for schema validation;
-- `User.fromJson(json)`, `toJson()`, and `safeToJson()` for the JSON boundary;
-- generated `copyWith` (null means keep the current value), deep
-  collection-aware `==`/`hashCode`, and `toString`;
-- a public static `User.$ack` adapter for nested generated models;
-- an unmodifiable `additionalProperties` map for passthrough objects.
-
-For class-first generation:
-
-```dart
-@AckModel(caseStyle: AckCaseStyle.snake)
-final class Account with _$AccountAck {
-  const Account({required this.displayName, this.role = 'member'});
-
-  @MinLength(2)
-  final String displayName;
-  final String role;
-
-  static final fromJson = AccountSchema.fromJson;
-}
-```
-
-This generates an `AccountSchema` facade backed by a private `_accountObject`
-wire schema and `_accountSchema` codec. Instantiable models apply the
-`_$AccountAck` mixin for `toJson`, `safeToJson`, `copyWith`, and deep
-equality. The facade exposes `schema`, `wireSchema`, `parse`, `safeParse`,
-`fromJson`, `encode`, `safeEncode`, `toJsonSchema`, and `toSchemaModel`.
-`schemaName:` overrides the exact public UpperCamelCase facade name; no public
-lower-camel alias is emitted. Constructor parameters determine presence and
-defaults. Field types and constraint annotations determine the schema. Sealed
-classes use `@AckModel(discriminatorKey: ...)`; same-library concrete branches
-are included automatically. Use `@AckField` to override `schema` and/or
-`AckFieldPresence`. Unknown properties use `AckAdditionalPropertiesMode`
-(`reject` by default; `discard` or `capture`).
-
-Nested class-first models compose through `AddressSchema.schema`, preserving
-import prefixes. Import combinators and barrels must expose both `Address` and
-`AddressSchema`. Schema-first declarations may explicitly use the facade, and
-class-first fields may use schema-first generated model types; both directions
-work from a clean build. Nullable/list/set wrappers are preserved. Automatic
-recursive class-first graphs are rejected; use schema-first named `Ack.lazy`
-for recursive contracts.
-
-Generated models do not implement `Map`, `List`, or scalar interfaces. Scalar
-and collection roots are value models with a `.value` field. Use model fields
-and `toJson()` instead of treating a model as its old boundary representation.
-
-## Supported schema-first generated-model shapes
-
-- objects and empty objects;
-- string, integer, double, number, boolean, list, literal, and enum roots;
-- built-in and custom bidirectional codecs;
-- lists, sets, and string-keyed `Map<String, T>` runtime values;
-- named nested models, aliases, defaults, and additional properties;
-- direct, prefixed, and re-exported model and runtime type references;
-- named `Ack.lazy` self-recursion and mutual recursion;
-- same-library discriminated unions.
-
-Generation rejects nullable roots, one-way transforms, `Ack.any()`,
-`Ack.anyOf()`, bare `Ack.instance<T>()`, anonymous inline object fields,
-non-string map keys, unresolved dynamic factories, name collisions, and
-cross-library discriminated branches.
-
-Class-first generation supports object models, inferred scalar and enum
-fields, nested lists, sets through list codecs, custom `@AckField` schemas,
-constructor defaults, case styles, `AckAdditionalPropertiesMode`, and
-same-library sealed discriminated unions. It rejects `dynamic`, `Object?`,
-non-String map keys, recursive class-first graphs, class-first value roots,
-undiscriminated `anyOf` models, missing `_$ClassAck` mixins, and no-op
-`@AckField()`.
-
-## Discriminated generated models
-
-`Ack.discriminated(...)` works with `@AckInfer()` when:
-
-- `schemas` is a non-empty map literal;
-- each branch is a top-level `@AckInfer()` object schema in the same library;
-- each branch is non-nullable;
-- branch schemas normally omit the discriminator field;
-- an included discriminator is an exact matching `Ack.literal(...)` or an
-  `Ack.enumString(...)` containing the branch key.
-
-```dart
-@AckInfer()
-final catSchema = Ack.object({'lives': Ack.integer()});
-
-@AckInfer()
-final dogSchema = Ack.object({'breed': Ack.string()});
-
-@AckInfer()
-final petSchema = Ack.discriminated(
-  discriminatorKey: 'type',
-  schemas: {'cat': catSchema, 'dog': dogSchema},
-);
-```
-
-This generates a sealed `Pet` base and final `Cat` and `Dog` branches.
-Boundary payloads include the discriminator. Generated subtype parsing
-validates through the union's effective branch.
-
-## Migration from the previous generator
-
-- Rename `@AckType()` to `@AckInfer()` for each connected graph you opt in.
-- Add both `.ack.dart` and `.ack.g.dart` part directives.
-- Rename generated `UserType` usages to `User` unless a custom name is set.
-- Replace map/list/scalar interface access with stored fields or `.value`.
-- Replace passthrough `.args` access with `.additionalProperties`.
-- Replace legacy Map access and `.args` with typed fields and
-  `.additionalProperties`; use `fromJson` / `toJson` at the JSON boundary.
-- Replace one-way transforms used by generated models with bidirectional codecs.
-- Replace public class-first `accountSchema` calls with `AccountSchema`; use
-  `AccountSchema.schema` when composing another schema and
-  `AccountSchema.wireSchema` for the raw Map schema.
-- Apply the generated `_$ClassAck` mixin; do not keep extension-based helpers.
-- Replace `additionalProperties: bool` with `AckAdditionalPropertiesMode`.
-- Regenerate all checked-in outputs with `dart run build_runner build`.
-
-## Runtime API reminders
-
-- `schema.parse(data)` throws on invalid input.
-- `schema.safeParse(data)` returns `SchemaResult<T>`.
-- `SchemaResult<T>.getOrThrow()` returns the value or throws `AckException`.
-- `.optional()` allows an object field to be omitted.
-- `.nullable()` allows a present value to be null.
-- `schema.toSchemaModel()` returns the canonical adapter/export model.
-- `schema.toJsonSchema()` renders that model as JSON Schema.
-- `Ack.list(...)` does not support nullable item schemas.
-- `Ack.lazy(...)` defaults `maxDepth` to 100.
-- Ack snapshots schema factory collections, and collection bounds must be valid.
-- Generated data classes use `deepEquals` and `deepHashCode` from `package:ack/ack.dart`.
+Keep API examples and substitution tables in their owning guides. When a public
+contract changes, update that guide and the index only where its links or sharp
+limitations change. Preserve decision history in ARCHITECTURE.md.

@@ -31,7 +31,7 @@ if (result.isOk) {
 }
 ```
 
-On success, `getOrThrow()` returns your **validated data** as a `Map<String, Object?>`. Ack checks and shapes the data — opt into [model code generation](/documentation/ack/advanced/typesafe-schemas) when you'd rather have typed fields than map access or want a schema generated from an existing class.
+On success, `getOrThrow()` returns your **validated data** as a `Map<String, Object?>`. Ack checks and shapes the data — opt into [model code generation](/documentation/ack/advanced/typesafe-schemas) when you'd rather have typed getters than map access or want a schema generated from an existing class.
 
 ## Why Ack?
 
@@ -39,36 +39,6 @@ On success, `getOrThrow()` returns your **validated data** as a `Map<String, Obj
 - **Define each shape once.** Reuse one schema for validation, JSON Schema export, and typed models.
 - **Errors you can act on.** Every failure points at the exact field and the reason it failed.
 - **Just Dart.** A fluent API with no required build step — reach for code generation only when you want it.
-
-## Go beyond validation
-
-<div className="not-prose my-8 grid gap-4 md:grid-cols-2">
-  <a
-    href="/documentation/ack/advanced/codecs"
-    className="group rounded-2xl border border-white/10 bg-white/[0.035] p-6 transition-colors hover:border-[#6e8bff]/50 hover:bg-[#315cff]/[0.07]"
-  >
-    <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-[#6e8bff]">Codecs</span>
-    <h3 className="mt-3 text-lg font-semibold tracking-tight text-white">JSON at the edge. Rich Dart values inside.</h3>
-    <div className="mt-2 text-sm leading-6 text-[#9aa8c7]">
-      Validate and decode strings or numbers into DateTime, Uri, Duration, enums, or your own runtime type—then encode them for the next boundary.
-    </div>
-    <code className="mt-5 inline-block !border-white/10 !bg-black/20 text-[#72e1ff]">Ack.datetime()</code>
-    <span className="mt-5 block text-sm font-medium text-[#b8c5e3] transition-colors group-hover:text-[#62d8ff]">Explore codecs →</span>
-  </a>
-
-  <a
-    href="/documentation/ack/advanced/typesafe-schemas"
-    className="group rounded-2xl border border-white/10 bg-white/[0.035] p-6 transition-colors hover:border-[#6e8bff]/50 hover:bg-[#315cff]/[0.07]"
-  >
-    <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-[#6e8bff]">Model code generation</span>
-    <h3 className="mt-3 text-lg font-semibold tracking-tight text-white">Start from the contract you own.</h3>
-    <div className="mt-2 text-sm leading-6 text-[#9aa8c7]">
-      Use @AckInfer() to generate an immutable model from a schema, or @AckModel() to derive a validated schema and JSON helpers from your class.
-    </div>
-    <code className="mt-5 inline-block !border-white/10 !bg-black/20 text-[#72e1ff]">@AckInfer() → User · @AckModel() → UserSchema</code>
-    <span className="mt-5 block text-sm font-medium text-[#b8c5e3] transition-colors group-hover:text-[#62d8ff]">Explore model generation →</span>
-  </a>
-</div>
 
 ## What do you want to do?
 
@@ -78,12 +48,14 @@ On success, `getOrThrow()` returns your **validated data** as a `Map<String, Obj
 - **Parse dates, URIs, and durations** — [Codecs](/documentation/ack/advanced/codecs)
 - **Add custom validation logic** — [Custom Validation](/documentation/ack/how-to-guides/custom-validation)
 - **Generate models or schemas** — [Model Code Generation](/documentation/ack/advanced/typesafe-schemas)
+- **Use Ack with MCP, Firebase AI (Gemini), or JSON Schema Builder** — [Ecosystem Integrations](/documentation/ack/advanced/ecosystem-integrations)
+- **Upgrade from Ack 1.x or see what changed** — [What's New & Migration Guide](/documentation/ack/getting-started/migration-guide)
 - **Reuse and compose schemas** — [Common Recipes](/documentation/ack/how-to-guides/common-recipes)
 
 ## Install
 
 ```bash
-dart pub add ack
+dart pub add ack:^2.0.0-beta.3
 ```
 
 New here? The [Quickstart Tutorial](/documentation/ack/getting-started/quickstart-tutorial) takes you from install to handling every validation outcome in a few minutes.
@@ -94,6 +66,7 @@ New here? The [Quickstart Tutorial](/documentation/ack/getting-started/quickstar
 - [Validation Rules](/documentation/ack/essentials/validation) — built-in constraints
 - [Error Handling](/documentation/ack/essentials/error-handling) — read and display structured errors
 - [JSON Serialization](/documentation/ack/essentials/json-serialization) — validate and encode JSON
-- [API Reference](/documentation/ack/reference/api-reference) — the full surface
+- [What's New & Migration Guide](/documentation/ack/getting-started/migration-guide) — what exists, what changed & why, and 1.x $\rightarrow$ 2.0 substitutions
+- [API Reference](/documentation/ack/reference/api-reference) — a core API quick reference with a link to generated API docs
 
-*Building with an AI agent? Start at [`/ack/llms.txt`](/ack/llms.txt) for a compact, machine-readable index.*
+*Building with an AI agent? Start at [`llms.txt`](https://docs.page/btwld/ack/llms.txt) for a compact, machine-readable index.*

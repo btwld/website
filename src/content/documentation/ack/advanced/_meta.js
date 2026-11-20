@@ -4,6 +4,7 @@ const meta = {
   'typesafe-schemas': 'Model Code Generation',
   'json-schema-integration': 'JSON Schema Integration',
   configuration: 'Configuration',
+  'ecosystem-integrations': 'Ecosystem Integrations',
   'adapter-authors': {
     type: 'separator',
     title: 'Adapter Authors',
